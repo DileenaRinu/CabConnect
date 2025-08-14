@@ -15,6 +15,16 @@ $stmt->bind_param("s", $driver_id);
 $stmt->execute();
 $driver = $stmt->get_result()->fetch_assoc();
 
+if ($driver['approval_status'] !== 'Approved') {
+    echo "<div class='card' style='margin:2rem auto;max-width:500px;text-align:center;'>
+            <h2>Account Pending Approval</h2>
+            <p>Your account is not yet approved by the admin. You will receive trip notifications once approved.</p>
+          </div>";
+    exit;
+}
+
+$vehicle_type = $driver['vehicle_type'];
+
 // Fetch bookings for this driver
 $stmt = $conn->prepare("SELECT b.*, c.name as customer_name, c.phone as customer_phone FROM booking b LEFT JOIN customer c ON b.customer_id = c.customer_id WHERE b.driver_id = ? ORDER BY b.booking_time DESC LIMIT 10");
 $stmt->bind_param("s", $driver_id);
@@ -36,6 +46,12 @@ $stmt = $conn->prepare("SELECT COUNT(*) as pending FROM booking WHERE driver_id 
 $stmt->bind_param("s", $driver_id);
 $stmt->execute();
 $pending_bookings = $stmt->get_result()->fetch_assoc()['pending'];
+
+// Booking notifications for this vehicle type, not yet accepted
+$stmt = $conn->prepare("SELECT * FROM booking WHERE vehicle_type = ? AND trip_status = 'Pending' AND driver_id IS NULL");
+$stmt->bind_param("s", $vehicle_type);
+$stmt->execute();
+$pending_bookings_notifications = $stmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -174,6 +190,29 @@ $pending_bookings = $stmt->get_result()->fetch_assoc()['pending'];
             .booking-details { grid-template-columns: 1fr; }
             .header-container { padding: 0 1rem; }
             .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        }
+        .accept-btn[disabled] {
+            background: #ccc !important;
+            color: #888 !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f2f2f2;
+            font-weight: 600;
+        }
+        tr:hover {
+            background: #f9f9f9;
         }
     </style>
 </head>
@@ -323,47 +362,78 @@ $pending_bookings = $stmt->get_result()->fetch_assoc()['pending'];
                 </div>
             <?php endif; ?>
         </div>
+
+        <!-- Booking Notifications Section -->
+        <div class="card">
+            <h2>🚦 New Ride Requests</h2>
+            <?php
+            if ($pending_bookings_notifications->num_rows > 0) {
+                while ($booking = $pending_bookings_notifications->fetch_assoc()) {
+                    echo "<div class='booking-item' style='margin-bottom:1.5rem; border-left:4px solid #667eea; background:#f8f9fa; border-radius:10px; padding:1rem;'>";
+                    echo "<div><strong>Booking #{$booking['booking_id']}</strong> | <strong>From:</strong> " . htmlspecialchars($booking['pickup_location']) . " <strong>To:</strong> " . htmlspecialchars($booking['drop_location']) . "</div>";
+                    echo "<div><strong>Vehicle Type:</strong> " . htmlspecialchars($booking['vehicle_type']) . " | <strong>Requested At:</strong> " . date('M d, Y H:i', strtotime($booking['booking_time'])) . "</div>";
+                    // Accept button enabled
+                    echo "<form method='POST' action='accept_booking.php' style='margin-top:10px;'>
+                            <input type='hidden' name='booking_id' value='{$booking['booking_id']}'>
+                            <button type='submit' class='accept-btn' style='background:linear-gradient(135deg,#43e97b,#38f9d7);color:#fff;border:none;padding:10px 24px;border-radius:20px;font-weight:600;cursor:pointer;'>Accept</button>
+                          </form>";
+                    echo "</div>";
+                }
+            } else {
+                echo "<div style='color:#666;text-align:center;padding:1rem;'>No new ride requests for your vehicle type.</div>";
+            }
+            ?>
+        </div>
+
+        <!-- Your Bookings Section -->
+        <div class="card">
+            <h2>📚 Your Bookings</h2>
+            <div class="section">
+                <h3>Your Bookings</h3>
+                <table>
+                    <tr>
+                        <th>#</th>
+                        <th>Customer</th>
+                        <th>Pickup</th>
+                        <th>Drop</th>
+                        <th>Vehicle</th>
+                        <th>Status</th>
+                        <th>Time</th>
+                        <th>Fare</th>
+                    </tr>
+                    <?php
+                    $stmt = $conn->prepare("
+                        SELECT 
+                            b.*, 
+                            c.name AS customer_name
+                        FROM booking b
+                        LEFT JOIN customer c ON b.customer_id = c.customer_id
+                        WHERE b.driver_id = ?
+                        ORDER BY b.booking_time DESC
+                    ");
+                    $stmt->bind_param("s", $driver_id);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    $i = 1;
+                    while ($row = $result->fetch_assoc()) {
+                        echo "<tr>
+                            <td>{$i}</td>
+                            <td>".htmlspecialchars($row['customer_name'])."</td>
+                            <td>".htmlspecialchars($row['pickup_location'])."</td>
+                            <td>".htmlspecialchars($row['drop_location'])."</td>
+                            <td>".htmlspecialchars($row['vehicle_type'])."</td>
+                            <td>".htmlspecialchars($row['trip_status'])."</td>
+                            <td>".date('M d, Y H:i', strtotime($row['booking_time']))."</td>
+                            <td>".(isset($row['fare']) ? '₹'.number_format($row['fare'],2) : '')."</td>
+                        </tr>";
+                        $i++;
+                    }
+                    ?>
+                </table>
+            </div>
+        </div>
     </div>
-    <form method="POST" action="" enctype="multipart/form-data" style="margin-bottom:2rem;">
-    <div class="form-group">
-        <label for="vehicle_image">Upload/Change Vehicle Image</label>
-        <input type="file" id="vehicle_image" name="vehicle_image" accept="image/*" required>
-    </div>
-    <button type="submit" name="upload_vehicle_image" class="btn">Upload Vehicle Image</button>d
-</form>
-<?php
-if (isset($_POST['upload_vehicle_image']) && isset($_FILES['vehicle_image'])) {
-    $upload_dir = 'uploads/vehicle_images/' . $driver_id . '/';
-    if (!is_dir($upload_dir)) {
-        mkdir($upload_dir, 0755, true);
-    }
-
-    function uploadFile($file, $allowed_types, $upload_dir) {
-        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $filename = uniqid() . '_' . time() . '.' . $ext;
-        $target = $upload_dir . $filename;
-        if (in_array($ext, $allowed_types) && move_uploaded_file($file['tmp_name'], $target)) {
-            return $target;
-        }
-        return false;
-    }
-
-    $vehicle_image_path = uploadFile($_FILES['vehicle_image'], ['jpg','jpeg','png','gif','bmp','webp'], $upload_dir);
-
-    if ($vehicle_image_path) {
-        // Update the driver's vehicle_image in the database
-        $stmt = $conn->prepare("UPDATE driver SET vehicle_image = ? WHERE driver_id = ?");
-        $stmt->bind_param("ss", $vehicle_image_path, $driver_id);
-        $stmt->execute();
-        // Refresh the page to show the new image
-        header("Location: driver_dashboard.php");
-        exit;
-    } else {
-        $error = "File upload failed. Please check your file and try again.";
-    }
-}
-?>
-<?php if (!empty($error)): ?>
+    <?php if (!empty($error)): ?>
     <div class="error" style="color:#c00; margin-bottom:1rem;"><?php echo $error; ?></div>
 <?php endif; ?>
 </body>
