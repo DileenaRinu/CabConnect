@@ -2,28 +2,42 @@
 session_start();
 include 'db_connect.php';
 
-// Check if user is logged in as customer
-if (!isset($_SESSION["user_id"]) || $_SESSION["user_type"] !== "customer") {
-    header("Location: unified_login.php");
-    exit;
-}
+$customer_id = $_SESSION['user_id'];
 
-$customer_id = $_SESSION["user_id"];
-$customer_name = $_SESSION["user_name"];
+// Get customer details
+$stmt = $conn->prepare("SELECT * FROM customer WHERE customer_id = ?");
+$stmt->bind_param("s", $customer_id);
+$stmt->execute();
+$customer_details = $stmt->get_result()->fetch_assoc();
+$customer_name = $customer_details['name'];
 
-// Handle booking form submission
+// Get recent bookings for this customer, with driver details if assigned
+$stmt = $conn->prepare("
+    SELECT 
+        b.*, 
+        d.name AS driver_name, 
+        d.phone AS driver_phone, 
+        d.vehicle_type AS driver_vehicle_type, 
+        d.vehicle_number 
+    FROM booking b
+    LEFT JOIN driver d ON b.driver_id = d.driver_id
+    WHERE b.customer_id = ?
+    ORDER BY b.booking_time ASC
+");
+$stmt->bind_param("s", $customer_id);
+$stmt->execute();
+$bookings = $stmt->get_result();
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['book_ride'])) {
     $pickup_location = trim($_POST["pickup_location"]);
     $drop_location = trim($_POST["drop_location"]);
-    $vehicle_type = $_POST["vehicle_type"];
-    
+    $vehicle_type = trim($_POST["vehicle_type"]);
+
     if (empty($pickup_location) || empty($drop_location) || empty($vehicle_type)) {
         $booking_error = "Please fill in all booking details";
     } else {
-        // Insert booking
-        $stmt = $conn->prepare("INSERT INTO booking (customer_id, pickup_location, drop_location, vehicle_type, booking_time, trip_status) VALUES (?, ?, ?, ?, NOW(), 'Pending')");
+        $stmt = $conn->prepare("INSERT INTO booking (customer_id, pickup_location, drop_location, vehicle_type, booking_time, trip_status, driver_id) VALUES (?, ?, ?, ?, NOW(), 'Pending', NULL)");
         $stmt->bind_param("ssss", $customer_id, $pickup_location, $drop_location, $vehicle_type);
-        
         if ($stmt->execute()) {
             $booking_success = "Your booking has been submitted! We're finding a driver for you.";
         } else {
@@ -31,23 +45,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['book_ride'])) {
         }
     }
 }
-
-// Get customer's booking history - FIXED QUERY
-$stmt = $conn->prepare("SELECT b.*, d.name as driver_name, d.phone as driver_phone, d.vehicle_type as driver_vehicle_type, d.vehicle_number 
-                        FROM booking b 
-                        LEFT JOIN driver d ON b.driver_id = d.driver_id 
-                        WHERE b.customer_id = ? 
-                        ORDER BY b.booking_time DESC 
-                        LIMIT 10");
-$stmt->bind_param("s", $customer_id);
-$stmt->execute();
-$bookings = $stmt->get_result();
-
-// Get customer details
-$stmt = $conn->prepare("SELECT * FROM customer WHERE customer_id = ?");
-$stmt->bind_param("s", $customer_id);
-$stmt->execute();
-$customer_details = $stmt->get_result()->fetch_assoc();
 ?>
 
 <!DOCTYPE html>
@@ -505,9 +502,8 @@ $customer_details = $stmt->get_result()->fetch_assoc();
                     <label for="vehicle_type">Vehicle Type</label>
                     <select id="vehicle_type" name="vehicle_type" required>
                         <option value="">Select Vehicle Type</option>
-                        <option value="Sedan">Sedan</option>
-                        <option value="SUV">SUV</option>
-                        <option value="Hatchback">Hatchback</option>
+                        <option value="car">Car</option>
+                        <option value="scooty">Scooty</option>
                         <option value="Auto">Auto Rickshaw</option>
                         <option value="Bike">Bike</option>
                     </select>
@@ -544,16 +540,17 @@ $customer_details = $stmt->get_result()->fetch_assoc();
         <div class="card booking-history">
             <h2>📋 Recent Bookings</h2>
             
-            <?php if ($bookings->num_rows > 0): ?>
-                <?php while ($booking = $bookings->fetch_assoc()): ?>
+            <?php
+            $booking_no = 1;
+            if ($bookings->num_rows > 0): 
+                while ($booking = $bookings->fetch_assoc()): ?>
                     <div class="booking-item">
                         <div class="booking-header">
-                            <span class="booking-id">Booking #<?php echo $booking['booking_id']; ?></span>
+                            <span class="booking-id">Booking #<?php echo $booking_no++; ?></span>
                             <span class="status <?php echo strtolower($booking['trip_status']); ?>">
                                 <?php echo $booking['trip_status']; ?>
                             </span>
                         </div>
-                        
                         <div class="booking-details">
                             <div class="detail-item">
                                 <strong>From:</strong> <?php echo htmlspecialchars($booking['pickup_location']); ?>
@@ -568,7 +565,7 @@ $customer_details = $stmt->get_result()->fetch_assoc();
                                 <strong>Date:</strong> <?php echo date('M d, Y H:i', strtotime($booking['booking_time'])); ?>
                             </div>
                             
-                            <?php if ($booking['driver_name']): ?>
+                            <?php if (!empty($booking['driver_name'])): ?>
                                 <div class="detail-item">
                                     <strong>Driver:</strong> <?php echo htmlspecialchars($booking['driver_name']); ?>
                                 </div>
@@ -583,13 +580,13 @@ $customer_details = $stmt->get_result()->fetch_assoc();
                                 </div>
                             <?php endif; ?>
                             
-                            <?php if ($booking['fare']): ?>
+                            <?php if (!empty($booking['fare'])): ?>
                                 <div class="detail-item">
                                     <strong>Fare:</strong> ₹<?php echo number_format($booking['fare'], 2); ?>
                                 </div>
                             <?php endif; ?>
                             
-                            <?php if ($booking['driver_eta']): ?>
+                            <?php if (!empty($booking['driver_eta'])): ?>
                                 <div class="detail-item">
                                     <strong>ETA:</strong> <?php echo htmlspecialchars($booking['driver_eta']); ?>
                                 </div>
