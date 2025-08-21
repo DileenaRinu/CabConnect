@@ -81,6 +81,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="error"><?php echo $error; ?></div>
         <?php endif; ?>
         <form method="post" action="">
+            <div class="ajax-error error" style="display:none;"></div>
             <div class="form-group">
                 <label>Name</label>
                 <input type="text" name="name" required value="<?php echo isset($name) ? htmlspecialchars($name) : ''; ?>">
@@ -111,5 +112,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             Already have an account? <a href="unified_login.php">Login here</a>
         </div>
     </div>
+    <script>
+function ajaxCheck(field, value) {
+    var formData = new FormData();
+    formData.append(field, value);
+    fetch('ajax_check_customer.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        showAjaxError(data);
+    });
+}
+
+document.querySelector('input[name="email"]').addEventListener('blur', function() {
+    var email = this.value.trim();
+    if (email.length > 0) ajaxCheck('email', email);
+});
+
+document.querySelector('input[name="phone"]').addEventListener('blur', function() {
+    var phone = this.value.trim();
+    if (phone.length > 0) ajaxCheck('phone', phone);
+});
+
+function showAjaxError(data) {
+    let errorDiv = document.querySelector('.ajax-error');
+    if (!errorDiv) {
+        errorDiv = document.createElement('div');
+        errorDiv.className = 'ajax-error error';
+        document.querySelector('form').insertBefore(errorDiv, document.querySelector('form').firstChild);
+    }
+    if (data.exists) {
+        errorDiv.textContent = data.message;
+        errorDiv.style.display = 'block';
+    } else {
+        errorDiv.textContent = '';
+        errorDiv.style.display = 'none';
+    }
+}
+</script>
 </body>
 </html>
