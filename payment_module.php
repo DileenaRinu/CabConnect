@@ -79,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="payment-container">
         <img src="https://razorpay.com/favicon.png" alt="Razorpay" class="razorpay-logo">
         <h2>Secure Payment</h2>
-        <p>Booking #<strong><?php echo htmlspecialchars($booking_id); ?></strong></p>
         <p>Total Amount: <strong>₹<?php echo number_format($amount, 2); ?></strong></p>
         <button id="payBtn">Pay with Razorpay</button>
         <div class="secure">
@@ -116,4 +115,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     </script>
 </body>
+
 </html>
