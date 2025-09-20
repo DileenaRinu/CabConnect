@@ -376,10 +376,12 @@ $bookings = $stmt->get_result();
         <div class="card booking-history">
             <h2>📋 Recent Bookings</h2>
             <?php if ($bookings->num_rows > 0): ?>
+                <?php $i = 1; ?>
                 <?php while ($booking = $bookings->fetch_assoc()): ?>
                     <div class="booking-item">
                         <div class="booking-header">
-                            <span class="booking-id">Booking #<?php echo $booking['booking_id']; ?></span>
+                            <!-- Show serial number as Booking # like in Your Bookings table -->
+                            <span class="booking-id">Booking #<?php echo $i; ?></span>
                             <span class="status <?php echo strtolower($booking['trip_status']); ?>">
                                 <?php echo $booking['trip_status']; ?>
                             </span>
@@ -406,10 +408,8 @@ $bookings = $stmt->get_result();
                             <?php if ($booking['fare']): ?>
                                 <div class="detail-item">
                                     <strong>Fare:</strong> ₹<?php echo number_format($booking['fare'], 2); ?>
-                                    
                                 </div>
                             <?php endif; ?>
-                            
                             <?php if (!empty($booking['start_time'])): ?>
                                 <div class="detail-item">
                                     <strong>Trip Started At:</strong> <?php echo date('M d, Y H:i', strtotime($booking['start_time'])); ?>
@@ -421,24 +421,24 @@ $bookings = $stmt->get_result();
                                 </div>
                             <?php endif; ?>
                             <?php
-if (!empty($booking['expected_eta_driver'])) {
-    echo "<div><strong>Customer's Expected Driver ETA to Pickup:</strong> " . htmlspecialchars($booking['expected_eta_driver']) . "</div>";
-}
-?>
+                            if (!empty($booking['expected_eta_driver'])) {
+                                echo "<div><strong>Customer's Expected Driver ETA to Pickup:</strong> " . htmlspecialchars($booking['expected_eta_driver']) . "</div>";
+                            }
+                            ?>
                         </div>
-                        
                         <?php if ($booking['trip_status'] == 'Accepted'): ?>
-    <form method="POST" style="margin-top:10px;">
-        <input type="hidden" name="booking_id" value="<?php echo $booking['booking_id']; ?>">
-        <button type="submit" name="start_trip" style="background:#43e97b;color:#fff;padding:8px 18px;border:none;border-radius:8px;cursor:pointer;">Start Trip</button>
-    </form>
-<?php elseif ($booking['trip_status'] == 'Started'): ?>
-    <form method="POST" style="margin-top:10px;">
-        <input type="hidden" name="booking_id" value="<?php echo $booking['booking_id']; ?>">
-        <button type="submit" name="complete_trip" style="background:#ff6b6b;color:#fff;padding:8px 18px;border:none;border-radius:8px;cursor:pointer;">Trip Completed</button>
-    </form>
-<?php endif; ?>
+                            <form method="POST" style="margin-top:10px;">
+                                <input type="hidden" name="booking_id" value="<?php echo $booking['booking_id']; ?>">
+                                <button type="submit" name="start_trip" style="background:#43e97b;color:#fff;padding:8px 18px;border:none;border-radius:8px;cursor:pointer;">Start Trip</button>
+                            </form>
+                        <?php elseif ($booking['trip_status'] == 'Started'): ?>
+                            <form method="POST" style="margin-top:10px;">
+                                <input type="hidden" name="booking_id" value="<?php echo $booking['booking_id']; ?>">
+                                <button type="submit" name="complete_trip" style="background:#ff6b6b;color:#fff;padding:8px 18px;border:none;border-radius:8px;cursor:pointer;">Trip Completed</button>
+                            </form>
+                        <?php endif; ?>
                     </div>
+                    <?php $i++; ?>
                 <?php endwhile; ?>
             <?php else: ?>
                 <div class="no-bookings">
