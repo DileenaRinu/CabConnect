@@ -589,6 +589,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_rating'])) {
                     <span class="profile-value"><?php echo date('M d, Y', strtotime($customer_details['created_at'])); ?></span>
                 </div>
             </div>
+            
+            <div style="text-align:center; margin-top:1rem;">
+                <a href="edit_customer_profile.php" class="book-btn" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:10px 28px;border-radius:25px;font-weight:600;text-decoration:none;display:inline-block;">Edit Profile</a>
+            </div>
         </div>
 
         <!-- Booking History -->
@@ -656,7 +660,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_rating'])) {
                             <div><strong>Distance:</strong> <?php echo htmlspecialchars($booking['distance']); ?> km</div>
                             <div><strong>Rate per km:</strong> ₹<?php echo htmlspecialchars($booking['rate_per_km']); ?></div>
                             <div><strong>Total Fare:</strong> ₹<?php echo htmlspecialchars($booking['fare']); ?></div>
-                            <div><strong>ETA:</strong> <?php echo htmlspecialchars($booking['driver_eta']); ?></div>
                         </div>
                         
                         <!-- Driver Details Section -->
