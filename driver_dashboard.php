@@ -365,6 +365,11 @@ $bookings = $stmt->get_result();
                     <span class="profile-value"><?php echo date('M d, Y', strtotime($driver['created_at'])); ?></span>
                 </div>
             </div>
+
+            <!-- Edit Profile Button -->
+            <div style="text-align:center; margin-top:1rem;">
+                <a href="edit_driver_profile.php" class="book-btn" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:10px 28px;border-radius:25px;font-weight:600;text-decoration:none;display:inline-block;">Edit Profile</a>
+            </div>
         </div>
 
         <!-- Booking History -->
